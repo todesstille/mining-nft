@@ -11,12 +11,12 @@ contract MiningSoulboundNFT is Initializable, CRC721Upgradeable, OwnableUpgradea
     mapping(address => bool) public minters;
     mapping(address => uint256) private _lastValidDays;
     mapping(uint256 => uint256) private _expirationDates;
-    mapping(uint256 => string) private _tokenUris;
+    string private _contractTokenUri;
 
     uint256 private _nextTokenId;
 
     event MinterSet(address indexed account, bool allowed);
-    event TokenMinted(address indexed to, uint256 indexed tokenId, uint256 expirationDate, string tokenUri);
+    event TokenMinted(address indexed to, uint256 indexed tokenId, uint256 expirationDate);
 
     modifier onlyMinter() {
         require(minters[_msgSender()], "MiningSoulboundNFT: caller is not a minter");
@@ -28,11 +28,12 @@ contract MiningSoulboundNFT is Initializable, CRC721Upgradeable, OwnableUpgradea
         _disableInitializers();
     }
 
-    function initialize(string calldata name_, string calldata symbol_) external initializer {
+    function initialize(string calldata name_, string calldata symbol_, string calldata contractTokenUri_) external initializer {
         __CRC721_init(name_, symbol_);
         __Ownable_init();
         __UUPSUpgradeable_init();
 
+        _contractTokenUri = contractTokenUri_;
         _nextTokenId = 1;
     }
 
@@ -46,14 +47,13 @@ contract MiningSoulboundNFT is Initializable, CRC721Upgradeable, OwnableUpgradea
         emit MinterSet(account, allowed);
     }
 
-    function mint(address to, uint256 expirationDate, string calldata tokenUri_) external onlyMinter returns (uint256) {
+    function mint(address to, uint256 expirationDate) external onlyMinter returns (uint256) {
         require(to != address(0) && to != ChecksumUpgradeable.zeroAddress(), "MiningSoulboundNFT: invalid recipient");
 
         uint256 tokenId = _nextTokenId;
         _nextTokenId = tokenId + 1;
 
         _expirationDates[tokenId] = expirationDate;
-        _tokenUris[tokenId] = tokenUri_;
 
         if (expirationDate > _lastValidDays[to]) {
             _lastValidDays[to] = expirationDate;
@@ -61,7 +61,7 @@ contract MiningSoulboundNFT is Initializable, CRC721Upgradeable, OwnableUpgradea
 
         _mint(to, tokenId);
 
-        emit TokenMinted(to, tokenId, expirationDate, tokenUri_);
+        emit TokenMinted(to, tokenId, expirationDate);
 
         return tokenId;
     }
@@ -77,7 +77,7 @@ contract MiningSoulboundNFT is Initializable, CRC721Upgradeable, OwnableUpgradea
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         _requireMinted(tokenId);
-        return _tokenUris[tokenId];
+        return _contractTokenUri;
     }
 
     function approve(address, uint256) public pure virtual override {

@@ -11,12 +11,14 @@ contract DeployMiningSoulboundNFTScript is Script {
         string memory privateKey = vm.envString("PRIVATE_KEY");
         string memory name_ = vm.envString("MINING_NFT_NAME");
         string memory symbol_ = vm.envString("MINING_NFT_SYMBOL");
+        string memory contractTokenUri_ = vm.envString("MINING_NFT_URI");
 
         vm.startBroadcast(privateKey);
 
         MiningSoulboundNFT impl = new MiningSoulboundNFT();
         ERC1967Proxy deployedProxy = new ERC1967Proxy(
-            address(impl), abi.encodeWithSelector(MiningSoulboundNFT.initialize.selector, name_, symbol_)
+            address(impl),
+            abi.encodeWithSelector(MiningSoulboundNFT.initialize.selector, name_, symbol_, contractTokenUri_)
         );
 
         vm.stopBroadcast();

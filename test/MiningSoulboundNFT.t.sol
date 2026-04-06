@@ -20,16 +20,19 @@ contract MiningSoulboundNFTTest is Test {
     address private _minter;
     address private _user;
     address private _other;
+    string private _contractUri;
 
     function setUp() public {
         _owner = makeAddr("owner");
         _minter = makeAddr("minter");
         _user = makeAddr("user");
         _other = makeAddr("other");
+        _contractUri = "ipfs://bafybeigdyrzt5example/metadata.json";
 
         _implementation = new MiningSoulboundNFT();
 
-        bytes memory initData = abi.encodeWithSelector(MiningSoulboundNFT.initialize.selector, "Mining NFT", "MNFT");
+        bytes memory initData =
+            abi.encodeWithSelector(MiningSoulboundNFT.initialize.selector, "Mining NFT", "MNFT", _contractUri);
 
         vm.prank(_owner);
         ERC1967ProxyMock proxy = new ERC1967ProxyMock(address(_implementation), initData);
@@ -40,12 +43,17 @@ contract MiningSoulboundNFTTest is Test {
         assertEq(_token.owner(), _owner);
         assertEq(_token.name(), "Mining NFT");
         assertEq(_token.symbol(), "MNFT");
+        vm.prank(_owner);
+        _token.setMinter(_minter, true);
+        vm.prank(_minter);
+        _token.mint(_user, block.timestamp + 1 days);
+        assertEq(_token.tokenURI(1), _contractUri);
     }
 
     function testInitializeCannotRunTwice() public {
         vm.prank(_owner);
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        _token.initialize("Other", "OTR");
+        _token.initialize("Other", "OTR", "ipfs://other");
     }
 
     function testOwnerCanManageMinters() public {
@@ -64,21 +72,20 @@ contract MiningSoulboundNFTTest is Test {
         _token.setMinter(_minter, true);
     }
 
-    function testMintStoresExpirationUriAndLastValidDay() public {
+    function testMintStoresExpirationAndLastValidDay() public {
         vm.prank(_owner);
         _token.setMinter(_minter, true);
 
         uint256 expirationDate = block.timestamp + 30 days;
-        string memory uri = "ipfs://bafybeigdyrzt5example/metadata.json";
 
         vm.prank(_minter);
-        uint256 tokenId = _token.mint(_user, expirationDate, uri);
+        uint256 tokenId = _token.mint(_user, expirationDate);
 
         assertEq(tokenId, 1);
         assertEq(_token.ownerOf(tokenId), _user);
         assertEq(_token.balanceOf(_user), 1);
         assertEq(_token.expirationDateOf(tokenId), expirationDate);
-        assertEq(_token.tokenURI(tokenId), uri);
+        assertEq(_token.tokenURI(tokenId), _contractUri);
         assertEq(_token.lastValidDay(_user), expirationDate);
     }
 
@@ -91,9 +98,9 @@ contract MiningSoulboundNFTTest is Test {
         uint256 thirdExpiration = block.timestamp + 20 days;
 
         vm.startPrank(_minter);
-        _token.mint(_user, firstExpiration, "ipfs://first");
-        _token.mint(_user, secondExpiration, "ipfs://second");
-        _token.mint(_user, thirdExpiration, "ipfs://third");
+        _token.mint(_user, firstExpiration);
+        _token.mint(_user, secondExpiration);
+        _token.mint(_user, thirdExpiration);
         vm.stopPrank();
 
         assertEq(_token.lastValidDay(_user), thirdExpiration);
@@ -107,14 +114,14 @@ contract MiningSoulboundNFTTest is Test {
         uint256 pastExpiration = block.timestamp - 1;
 
         vm.prank(_minter);
-        _token.mint(_user, pastExpiration, "ipfs://expired");
+        _token.mint(_user, pastExpiration);
 
         assertEq(_token.lastValidDay(_user), pastExpiration);
     }
 
     function testOnlyMinterCanMint() public {
         vm.expectRevert(bytes("MiningSoulboundNFT: caller is not a minter"));
-        _token.mint(_user, block.timestamp + 1 days, "ipfs://forbidden");
+        _token.mint(_user, block.timestamp + 1 days);
     }
 
     function testTransferFromReverts() public {
@@ -122,7 +129,7 @@ contract MiningSoulboundNFTTest is Test {
         _token.setMinter(_minter, true);
 
         vm.prank(_minter);
-        _token.mint(_user, block.timestamp + 1 days, "ipfs://locked");
+        _token.mint(_user, block.timestamp + 1 days);
 
         vm.prank(_user);
         vm.expectRevert(bytes("MiningSoulboundNFT: transfers disabled"));
@@ -134,7 +141,7 @@ contract MiningSoulboundNFTTest is Test {
         _token.setMinter(_minter, true);
 
         vm.prank(_minter);
-        _token.mint(_user, block.timestamp + 1 days, "ipfs://locked");
+        _token.mint(_user, block.timestamp + 1 days);
 
         vm.prank(_user);
         vm.expectRevert(bytes("MiningSoulboundNFT: transfers disabled"));
@@ -146,7 +153,7 @@ contract MiningSoulboundNFTTest is Test {
         _token.setMinter(_minter, true);
 
         vm.prank(_minter);
-        _token.mint(_user, block.timestamp + 1 days, "ipfs://locked");
+        _token.mint(_user, block.timestamp + 1 days);
 
         vm.prank(_user);
         vm.expectRevert(bytes("MiningSoulboundNFT: approvals disabled"));
